@@ -1,1 +1,2 @@
-# b_adatabla_join
+# Adattáblák összekapcsolása
+
