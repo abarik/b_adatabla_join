@@ -1,0 +1,90 @@
+---
+title: "Adattáblák összekapcsolása"
+author: "Abari Kálmán"
+date: '2022. 01. 27.'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Néha adataink több állományban foglalnak helyet. Például az elemzések során a vizsgálati személyek szocio-demográfia adatait (nem, életkor, iskolai végzettség stb.) és a vizsgálat során keletkező adatait (pl. reakcióidő) szokás szerint két külön állományban tároljuk. Az elemzés egy adott fázisában azonban szükség lehet a két adattábla egyesítésére. (Ez a művelet az adatbázis-kezelés során jól ismert összekapcsolás vagy join művelet.) Ebben a posztban a hagyományos R eszközeit, egészen pontosan a `merge()` függvényt használjuk két adattábla összekapcsolására. 
+
+Olvassuk be a szocio-demográfiai adatokat:
+
+```{r}
+d.szemelyek <- read.table(file = "adat/merge_szemelyek.txt", sep="\t", header=T, dec=".", quote="", comment.char="")
+d.szemelyek # 5 személy
+```
+
+Olvassuk be a vizsgálat során keletkező adatokat (személyenként 10 reakcióidő adat):
+
+```{r}
+d.vizsgalat <- read.table(file = "adat/merge_vizsgalat.txt", sep="\t", header=T, dec=".", quote="", comment.char="")
+d.vizsgalat
+```
+
+
+## Egyszerű összekapcsolás
+
+A `merge()` függvény segítségével a beolvasott adatainkat egyetlen adattáblában tárolhatjuk el. A paraméterben felsoroljuk a két összekapcsolandó adattábla nevét (`x=`, `y=`), majd a közös oszlop nevét (`by=`) adjuk meg. Az összekapcsolás során egy sorba kerülnek az azonos `SUBJECT` oszlopbeli értékkel rendelkező adatmezők a két adattáblából. Az új adattábla oszlopai a két kiinduló adattáblából tevődnek össze, a kapcsoló oszlop egyszer fog megjelenni.
+
+```{r}
+merge(x=d.szemelyek, y=d.vizsgalat, by="SUBJECT")
+```
+
+## Több személy
+
+Tegyük fel, hogy még egy személyről van demográfiai adatunk, de ő még nem végezte a kísérletet. Ekkor az összekapcsolásnál figyelnünk kell. Először hozzunk létre egy új adattáblát a `d.szemelyek` alapján, amely egy új személy adatait is tartalmazza:
+
+```{r}
+d.szemelyek.2 <- rbind(d.szemelyek, 
+                       data.frame(SUBJECT="ZsV", NEME="f", ELETKOR=13))
+d.szemelyek.2
+```
+
+Az egyszerű összekapcsolás most nem megfelelő, hiszen `ZsV`-t kihagyja az outputból:
+
+```{r}
+merge(x=d.szemelyek.2, y=d.vizsgalat, by="SUBJECT") # inner join
+```
+
+A megfelelő összekacsoláshoz használjuk az `all.x=T` argumentumot, amely biztosítja, hogy az első (`x=`) paraméterben szereplő `d.szemelyek.2` adattáblából minden sor megjelenjen az outputban.
+
+```{r}
+merge(x=d.szemelyek.2, y=d.vizsgalat, by="SUBJECT", all.x=T) # left join
+```
+
+## Több vizsgálati adat
+
+Amennyiben olyan személyről is van vizsgálati adatunk, akinek a demográfiai adatait még nem rögzítettük, akkor a fenti esethez hasonló módosítást kell végrehajtani az argumentumban.
+
+`VE` vizsgálati adatainak hozzáadása:
+
+```{r}
+adatok.VE <- data.frame(SUBJECT=rep("VE",10), 
+                        KERDES=paste(sep=".","k",1:10), 
+                        RI=c(657, 1203, 785, 914, 1327, 799, 1129, 1411, 891, 582 ))
+d.vizsgalat.2 <- rbind(d.vizsgalat, adatok.VE)
+d.vizsgalat.2
+```
+
+A helyes összekapcsolás az `all.y=T` használatával:
+
+```{r}
+merge(x=d.szemelyek, y=d.vizsgalat.2, by="SUBJECT", all.y=T) # right join
+```
+
+Abban az esetben, ha mindkét adattáblában vannak a másikból hiányzó adatok, akkor az `all=T` argumentumot kell használnunk. Erre példa a `d.szemelyek.2` és  `d.vizsgalat.2` adattáblák összekapcsolása.
+
+```{r}
+merge(x=d.szemelyek.2, y=d.vizsgalat.2, by="SUBJECT", all=T) # full join
+```
+
+Ha nem egyezik a kapcsolóoszlop neve a két adattáblában, akkor a `by.x=` és `by.y=` argumentummal megnevezhetjük egyenként a kapcsolatban lévő oszlopok nevét.
+
+```{r}
+names(d.szemelyek.2)[1] <- "ID" # átnevezzük az oszlopot
+merge(x=d.szemelyek.2, y=d.vizsgalat.2, by.x="ID", by.y="SUBJECT",  all=T) # full join
+```
